@@ -5,22 +5,19 @@ fun main() {
         }
 
     val names = listOf("one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
-    val digits = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
 
-    fun String.getFirstDigit(): Int {
-        fun find(list: List<String>) =
-            list.map { indexOf(it).let { idx-> if(idx>=0) idx else length } to it }.minBy { it.first }
-        val (digitIdx,digit) = find(digits)
-        val (wordIdx,word) = find(names)
-        return if (digitIdx < wordIdx) digit.toInt() else names.indexOf(word) + 1
+    fun String.getDigit(range: IntProgression): Int {
+        for (idx in range) {
+            val c = this[idx]
+            if (c.isDigit()) return c-'0'
+            names.forEach { name ->
+                if (startsWith(name, idx)) return names.indexOf(name) + 1
+            }
+        }
+        error("No digit found")
     }
-
-    fun String.getLastDigit(): Int {
-        fun find(list: List<String>) = list.map { lastIndexOf(it) to it }.maxBy { it.first }
-        val (digitIdx,digit) = find(digits)
-        val (wordIdx,word) = find(names)
-        return if (digitIdx > wordIdx) digit.toInt() else names.indexOf(word) + 1
-    }
+    fun String.getFirstDigit(): Int = getDigit(indices)
+    fun String.getLastDigit(): Int = getDigit(lastIndex downTo 0)
 
     fun part2(input: List<String>) =
         input.sumOf{ it.getFirstDigit()*10 + it.getLastDigit() }

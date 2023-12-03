@@ -10,25 +10,24 @@ fun main() {
             .let { Cubs(it.get("red"), it.get("green"), it.get("blue")) }
 
     fun String.parseSets() = split("; ").map { it.parseCubs() }
+
     fun String.parseGame() = split(": ").let { (game, sets) ->
         Game(game.drop("Game ".length).toInt(), sets.parseSets())
     }
 
-    fun part1(input: List<String>): Int = input
-        .map { it.parseGame() }
+    fun part1(games: List<Game>): Int = games
         .filter { game -> game.sets.all { it.red<=12 && it.green<=13 && it.blue<=14 } }
         .sumOf { it.id }
 
-    fun part2(input: List<String>): Long = input
-        .map { it.parseGame() }
+    fun part2(games: List<Game>): Long = games
         .map { Cubs(it.sets.maxOf { it.red }, it.sets.maxOf { it.green }, it.sets.maxOf { it.blue } ) }
         .sumOf { it.red.toLong() * it.green * it.blue }
 
-    val testInput = readInput("Day02_test")
-    check(part1(testInput) == 8)
-    check(part2(testInput) == 2286L)
+    val testGames = readInput("Day02_test").map { it.parseGame() }
+    check(part1(testGames) == 8)
+    check(part2(testGames) == 2286L)
 
-    val input = readInput("Day02")
-    part1(input).println() // 2632
-    part2(input).println() // 55093
+    val games = readInput("Day02").map { it.parseGame() }
+    part1(games).println() // 2632
+    part2(games).println() // 69629
 }
