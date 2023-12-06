@@ -21,6 +21,6 @@ fun List<LongRange>.reduce(): List<LongRange> {
     }
     //res.sortBy { it.first }
     //val total = res.sumOf { it.last- it.first + 1 }
-    //println("$total: -> $res")
+    //println("reduce: -> ${res.size}")
     return res
 }

@@ -4,6 +4,7 @@ package day05
 
 import println
 import readInput
+import reduce
 import splitBy
 import kotlin.math.min
 import kotlin.time.measureTime
