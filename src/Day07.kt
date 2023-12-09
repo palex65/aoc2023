@@ -7,6 +7,7 @@ import readInput
 import kotlin.time.measureTime
 import day07.Card.*
 import day07.Type.*
+import java.util.*
 
 enum class Card(val label: Char) {
     JOKER('?'), // Part2
@@ -65,8 +66,7 @@ fun Hand.typeWithJoker(): Type {
 fun main() {
     fun computeWinnings(input: List<String>, joker: Boolean=false): Int = input
         .parseCards(joker)
-        .groupBy { if (joker) it.typeWithJoker() else it.type() }
-        .toSortedMap()
+        .groupByTo( TreeMap() ) { if (joker) it.typeWithJoker() else it.type() }
         .values.flatMap { it.sortedWith( Hand::compareByCard ) }
         .foldIndexed(0) { idx, acc, hand -> acc + hand.bid * (idx+1) }
 

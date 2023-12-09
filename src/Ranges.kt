@@ -1,26 +1,28 @@
+import kotlin.math.min
+import kotlin.math.max
 
-operator fun LongRange.times(other: LongRange): LongRange? {
-    val from = kotlin.math.max(this.first, other.first)
-    val to = kotlin.math.min(this.last, other.last)
+operator fun LongRange.times(other: LongRange): LongRange? {  // intersection
+    val from = max(this.first, other.first)
+    val to = min(this.last, other.last)
     return if (from<=to) from..to else null
 }
 
-operator fun LongRange.plus(other: LongRange): LongRange? =
+operator fun LongRange.plus(other: LongRange): LongRange? = // union
     if (last !in other && first !in other) null
-    else kotlin.math.min(first, other.first)..kotlin.math.max(last, other.last)
+    else min(first, other.first)..max(last, other.last)
 
-fun List<LongRange>.reduce(): List<LongRange> {
-    val res = mutableListOf<LongRange>()
-    for (r in this) {
-        val u = res.firstOrNull { r + it != null}
-        if (u==null) res.add(r)
-        else {
-            res.remove(u)
-            res.add((r+u)!!)
+fun List<LongRange>.reduce(): List<LongRange> =
+    if (size <= 1) this
+    else buildList {
+        for (r in this@reduce) {
+            var u: LongRange? = null
+            var idx = 0
+            while (idx < size) {
+                u = r + get(idx)
+                if (u != null) break
+                idx++
+            }
+            if (u != null) set(idx,u)
+            else add(r)
         }
     }
-    //res.sortBy { it.first }
-    //val total = res.sumOf { it.last- it.first + 1 }
-    //println("reduce: -> ${res.size}")
-    return res
-}

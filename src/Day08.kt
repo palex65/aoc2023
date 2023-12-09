@@ -6,18 +6,14 @@ import println
 import readInput
 import kotlin.time.measureTime
 
-enum class Dir(val symbol: Char){ LEFT('L'), RIGHT('R') }
-
 sealed interface To {  // Sum type to (id: String | node: Node)
-    val id: String get() = (this as ToNode).node.id
+    val id: String get() = (this as To.No).node.id
     val node: Node get() = error("Not a node")
+    class Id(override val id: String): To
+    class No(override val node: Node): To
 }
-class ToId(override val id: String): To
-class ToNode(override val node: Node): To
 
 class Node(val id: String, var left: To, var right: To) {
-    override fun equals(other: Any?) = other === this
-    override fun hashCode() = id.hashCode()
     override fun toString() = "Node($id, ${left.id}, ${right.id})"
 }
 
@@ -27,23 +23,21 @@ val reNode = Regex("""(\w+) = \((\w+), (\w+)\)""")
 
 fun List<String>.parseInfo() = Info(
     dirs = first(),
-        //.map { sym -> Dir.entries.first{ it.symbol==sym } },
     nodes = drop(2)
         .map {
             val (from,toLeft,toRight) = checkNotNull(reNode.matchEntire(it)?.destructured)
-            Node(from, ToId(toLeft), ToId(toRight))
+            Node(from, To.Id(toLeft), To.Id(toRight))
         }
-        .associateBy { it.id }
-        .resolveLinks()
+        .associateNodes()
 )
 
-fun Map<String,Node>.resolveLinks(): Map<String,Node> {
-    values.forEach { node ->
-        node.left = ToNode(getValue(node.left.id))
-        node.right = ToNode(getValue(node.right.id))
+fun List<Node>.associateNodes(): Map<String,Node> =
+    associateByTo( LinkedHashMap(size) ) { it.id }.also { map ->
+        map.values.forEach { node ->
+            node.left = To.No(map.getValue(node.left.id))
+            node.right = To.No(map.getValue(node.right.id))
+        }
     }
-    return this
-}
 
 fun main() {
     fun pathLength(from: Node, targets: List<Node>, dirs: String): Int {
@@ -63,15 +57,11 @@ fun main() {
         return pathLength(nodes.getValue("AAA"), listOf(nodes.getValue("ZZZ")), dirs)
     }
 
-    fun lcm(a: Long, b: Long): Long { // Least Common Multiple using Euclid's algorithm
-        var (x, y) = a to b
-        while (y != 0L) {
-            val t = y
-            y = x % y
-            x = t
-        }
-        return a * b / x
-    }
+    tailrec fun gcd(a: Long, b: Long): Long = // Greatest Common Divisor (Euclid's algorithm)
+        if (a == 0L) b else gcd(b % a, a)
+
+    fun lcm(a: Long, b: Long): Long = // Least Common Multiple
+        a * b / gcd(a, b)
 
     fun part2(input: List<String>): Long {
         val (dirs, nodes) = input.parseInfo()
@@ -79,7 +69,7 @@ fun main() {
         return nodes.values
             .filter { it.id.last()=='A' }
             .map { pathLength(it,targets,dirs).toLong() }
-            .reduce{ acc, i -> lcm(acc,i) }
+            .reduce { acc, i -> lcm(acc,i) }
     }
 
     val testInput = readInput("Day08_test")

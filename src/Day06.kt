@@ -4,6 +4,10 @@ package day06
 
 import println
 import readInput
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import kotlin.time.measureTime
 
 data class Race(val time: Int, val distance: Long)
@@ -24,14 +28,15 @@ fun Race.isBestFor(speed: Int) = speed.toLong() * (time-speed) > distance
 
 fun Race.countBests_a() = (1..<time).count { speed -> isBestFor(speed) }
 
+// a*x^2 + b*x + c = 0 =>  x = (-b +- sqrt(b^2 - 4*a*c)) / (2*a)
 fun Race.countBests(): Int {
-    var l=0
-    var r=time
-    while (l<=r) {
-        val m = (l+r)/2
-        if (isBestFor(m)) r=m-1 else l=m+1
-    }
-    return time-2*l + 1
+    // distance = speed * (time-speed)
+    // d = s * (t-s) =>  s^2 - t*s + d = 0 -> a=1, b=-t, c=d
+    // s = (t +- sqrt(t^2 - 4*d)) / 2
+    val s = (time-sqrt( (time.toDouble()*time - 4*distance) )) / 2
+    val first = floor(s).toInt() + 1
+    val count = time-2*first + 1
+    return count
 }
 
 fun main() {
@@ -49,6 +54,6 @@ fun main() {
     check(part2(testInput) == 71503)
 
     val input = readInput("Day06")
-    println( measureTime { part1(input).println() } ) // 275724 - a)1ms -  700us
-    println( measureTime { part2(input).println() } ) // 37286485 - a)70ms - 60us
+    println( measureTime { part1(input).println() } ) // 275724 - a)1.5ms - 1ms
+    println( measureTime { part2(input).println() } ) // 37286485 - a)120ms - 100us
 }
