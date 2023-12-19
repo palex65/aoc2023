@@ -17,13 +17,13 @@ data class DigAction(val dir: Direction, val length: Int)
 
 typealias DigPlan = List<DigAction>
 
-fun List<String>.parsePlan(): DigPlan =
+fun Input.parsePlan(): DigPlan =
     map { line ->
         val (dir,len) = line.split(' ')
         DigAction(Direction.entries.first { it.letter == dir[0] }, len.toInt())
     }
 
-fun List<String>.parsePlan2(): DigPlan =
+fun Input.parsePlan2(): DigPlan =
     map { line ->
         val code = line.split(' ')[2].substring(2..7)
         val dir = Direction.entries.first { it.ordinal == code.last().digitToInt() }
