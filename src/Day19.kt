@@ -5,18 +5,32 @@ package day19
 import println
 import readInput
 import splitBy
-import java.util.concurrent.locks.Condition
 import kotlin.time.measureTime
 
 typealias Input = List<String>
 
 enum class Category(val letter: Char) { X('x'), M('m'), A('a'), S('s') }
-enum class Operation(val text: String, val validator: (rating: Int, limit:Int)->Boolean) {
-    LESS("<", { rating, limit -> rating < limit }),
-    GREATER(">", { rating, limit -> rating > limit }),
+enum class Operation(
+    val text: String,
+    val validator: (rating: Int, limit:Int)->Boolean,
+    val thenRange: (limit: Int, range: IntRange)->IntRange,
+    val elseRange: (limit: Int, range: IntRange)->IntRange
+) {
+    LESS("<",
+        validator = { rating, limit -> rating < limit },
+        thenRange = { limit, range -> range.first..minOf(limit - 1, range.last) },
+        elseRange = { limit, range -> maxOf(limit, range.first)..range.last }
+    ),
+    GREATER(">",
+        validator = { rating, limit -> rating > limit },
+        thenRange = { limit, range -> maxOf(limit + 1, range.first)..range.last },
+        elseRange = { limit, range -> range.first..minOf(limit, range.last) }
+    ),
 }
 
-data class Part(val rating: Map<Category,Int>)
+data class Part(val ratings: List<Int>)
+fun Part.getRating(cat: Category) = ratings[cat.ordinal]
+
 data class Rule(val category: Category, val operation: Operation, val limit: Int, val to: String)
 data class Workflow(val id: String, val rules: List<Rule>, val default: String)
 
@@ -37,30 +51,34 @@ fun String.parseWorkflow(): Workflow {
 }
 
 fun String.parsePart() = Part(
-    removeSurrounding("{","}").split(',').map {
-        val (cat, value) = it.split("=")
+    removeSurrounding("{", "}").split(',').map { pair ->
+        val (cat, value) = pair.split("=")
         Category.entries.first { it.letter == cat.first() } to value.toInt()
-    }.toMap()
+    }.sortedBy { it.first.ordinal }.map { it.second }
 )
 
 typealias Workflows = Map<String, Workflow>
-typealias Ranges = Map<Category, IntRange>
+
+typealias Ranges = List<IntRange>
+fun Ranges(init: (Int)->IntRange): Ranges = List(Category.entries.size, init)
+operator fun Ranges.get(cat: Category) = this[cat.ordinal]
+fun Ranges.combinations() = fold(1L) { acc, range -> acc * range.count() }
+fun Ranges.replace(cat: Category, range: IntRange) = Ranges { if (it == cat.ordinal) range else this[it] }
+//operator fun Ranges.set(cat: Category, range: IntRange) { this[cat.ordinal] = range }
 
 fun main() {
-    fun Workflow.process(part: Part): String {
-        for (rule in rules) {
-            val rating = part.rating[rule.category] ?: error("No rating for ${rule.category}")
-            if (rule.operation.validator(rating, rule.limit)) return rule.to
-        }
-        return default
-    }
+    fun Workflow.process(part: Part) =
+        rules.firstOrNull { rule ->
+            rule.operation.validator(part.getRating(rule.category), rule.limit)
+        }?.to ?: default
+
     fun Part.isAccepted(wfs: Workflows): Boolean {
-        var wf = wfs["in"] ?: error("No workflow for 'in'")
+        var wf = wfs.getValue("in")
         while (true) {
             val to = wf.process(this)
             if (to == "A") return true
             if (to == "R") return false
-            wf = wfs[to] ?: error("No workflow for '$to'")
+            wf = wfs.getValue(to)
         }
     }
 
@@ -68,36 +86,28 @@ fun main() {
         val (w, p) = input.splitBy { it.isEmpty() }
         val workflows = w.map { it.parseWorkflow() }.associateBy { it.id }
         val parts = p.map { it.parsePart() }
-        val ratings = parts.filter { it.isAccepted(workflows) }.map { it.rating.values.sum() }
+        val ratings = parts.filter { it.isAccepted(workflows) }.map { it.ratings.sum() }
         return ratings.sum()
     }
 
     fun part2(input: Input): Long {
         val workflows = input.splitBy { it.isEmpty() }.first().map { it.parseWorkflow() }.associateBy { it.id }
-        fun process(wfId: String, ranges: Ranges): Long {
-            if (wfId == "R") return 0L
-            if (wfId == "A") return ranges.values.fold(1L) { acc, range -> acc * range.count() }
-            val wf = workflows.getValue(wfId)
-            val newRanges = ranges.toMutableMap()
-            var count = 0L
-            for (rule in wf.rules) {
-                val range = newRanges.getValue(rule.category)
-                val positiveRange = when (rule.operation) {
-                    Operation.LESS -> range.first..minOf(rule.limit-1, range.last)
-                    Operation.GREATER -> maxOf(rule.limit + 1,range.first)..range.last
+        fun combinations(wfId: String, ranges: Ranges): Long = when(wfId) {
+            "R" -> 0L
+            "A" -> ranges.combinations()
+            else -> with( workflows.getValue(wfId) ) {
+                var rgs = ranges
+                var count = 0L
+                for (rule in rules) {
+                    val rg = rgs[rule.category]
+                    count += combinations(rule.to, rgs.replace(rule.category, rule.operation.thenRange(rule.limit, rg)))
+                    rgs = rgs.replace(rule.category, rule.operation.elseRange(rule.limit, rg))
                 }
-                newRanges[rule.category] = positiveRange
-                count += process(rule.to, newRanges)
-                val negativeRange = when (rule.operation) {
-                    Operation.LESS -> maxOf(rule.limit, range.first)..range.last
-                    Operation.GREATER -> range.first..minOf(rule.limit, range.last)
-                }
-                newRanges[rule.category] = negativeRange
+                count += combinations(default, rgs)
+                count
             }
-            count += process(wf.default, newRanges)
-            return count
         }
-        return process("in", Category.entries.associateWith { (1..4000) })
+        return combinations("in", Ranges { (1..4000) })
     }
 
     val testInput = readInput("Day19_test")
