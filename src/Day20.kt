@@ -76,7 +76,7 @@ fun main() {
                 val outs = nodes.getValue(cur).outputs
                 val conj = outs.intersect(feeders)
                 val ff = outs - feeders
-                bits.insert(0,if (conj.isEmpty()) '0' else '1')
+                bits.insert(0, if (conj.isEmpty()) '0' else '1')
                 cur = ff.firstOrNull() ?: conj.first()
             }
             //println("$cur : $bits")
