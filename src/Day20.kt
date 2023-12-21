@@ -9,12 +9,8 @@ import kotlin.time.measureTime
 typealias Input = List<String>
 
 enum class NodeType(val symbol:Char?) { NONE(null), FLIP_FLOP('%'), CONJUNCTION('&') }
-val typeSymbols = NodeType.entries.map { it.symbol } - null
 
 data class Node(val id: String, val outputs: List<String>, val type: NodeType)
-
-//class FlipFlop(id: String, outputs: List<String>, var state: Boolean = false): Node(id,outputs)
-//class Conjuntion(id: String, outputs: List<String>, val state: MutableMap<String,Boolean> = mutableMapOf()): Node(id,outputs)
 
 fun Input.parseConfiguration(): Map<String,Node> = associate {
     val (name, out) = it.split(" -> ")
@@ -29,10 +25,13 @@ data class Pulse(val from: String, val to: String, val high: Boolean)
 fun main() {
     fun part1(input: Input): Int {
         val nodes = input.parseConfiguration()
-        val ffStates = nodes.filter { it.value.type == NodeType.FLIP_FLOP }.keys.associateWith { false }.toMutableMap()
-        val cjStates = nodes.filter { it.value.type == NodeType.CONJUNCTION }.keys.associateWith { id ->
-            buildMap { nodes.values.forEach { n -> n.outputs.forEach{ out -> if (out==id) put(n.id,false) } } }.toMutableMap()
-        }
+        val ffStates: MutableMap<String, Boolean> = nodes.filter { it.value.type == NodeType.FLIP_FLOP }
+            .keys.associateWith { false }.toMutableMap()
+        val cjStates: Map<String, MutableMap<String, Boolean>> = nodes.filter { it.value.type == NodeType.CONJUNCTION }
+            .keys.associateWith { id ->
+                buildMap { nodes.values.forEach { n -> n.outputs.forEach{ out -> if (out==id) put(n.id,false) } } }
+                .toMutableMap()
+            }
         var countHigh = 0
         var countLow = 0
         val pulses: MutableList<Pulse> = mutableListOf()
@@ -57,61 +56,41 @@ fun main() {
                 node.outputs.forEach { pulses.add(Pulse(pulse.to, it, send)) }
             }
         }
-        repeat(1000) {
-            processPulse()
-        }
-        //println("countLow = $countLow, countHigh = $countHigh")
+        repeat(1000) { processPulse() }
         return countLow * countHigh
     }
 
-    fun part2(input: Input): Int {
+    fun part2(input: Input): Long {
         val nodes = input.parseConfiguration()
-        val ffStates = nodes.filter { it.value.type == NodeType.FLIP_FLOP }.keys.associateWith { false }.toMutableMap()
-        val cjStates = nodes.filter { it.value.type == NodeType.CONJUNCTION }.keys.associateWith { id ->
-            buildMap { nodes.values.forEach { n -> n.outputs.forEach{ out -> if (out==id) put(n.id,false) } } }.toMutableMap()
-        }
-        val pulses: MutableList<Pulse> = mutableListOf()
-        fun processPulse(): Boolean {
-            pulses.add(Pulse("button","broadcaster", high = false))
-            while (pulses.isNotEmpty()) {
-                val pulse = pulses.removeFirst()
-                if (!pulse.high && pulse.to == "rx") return true
-                val node = nodes[pulse.to] ?: continue
-                val send = when (node.type) {
-                    NodeType.FLIP_FLOP -> {
-                        if (pulse.high) continue
-                        (!ffStates.getValue(pulse.to)).also { ffStates[pulse.to] = it }
-                    }
-                    NodeType.CONJUNCTION -> {
-                        cjStates.getValue(pulse.to)[pulse.from] = pulse.high
-                        !cjStates.getValue(pulse.to).values.all { it }
-                    }
-                    else -> pulse.high
-                }
-                node.outputs.forEach { pulses.add(Pulse(pulse.to, it, send)) }
+        val revLinks = nodes.values
+            .flatMap { it.outputs }.distinct()
+            .associateWith { out -> nodes.values.filter { out in it.outputs }.map { it.id } }
+        val feeders = revLinks.getValue( revLinks.getValue("rx").first() )
+            .flatMap { revLinks.getValue(it) }.toSet()
+        //feeders.println()
+        val res = nodes.getValue("broadcaster").outputs.map { start ->
+            var cur = start
+            val bits = StringBuilder()
+            while (cur !in feeders) {
+                //print("$cur->")
+                val outs = nodes.getValue(cur).outputs
+                val conj = outs.intersect(feeders)
+                val ff = outs - feeders
+                bits.insert(0,if (conj.isEmpty()) '0' else '1')
+                cur = ff.firstOrNull() ?: conj.first()
             }
-            return false
-        }
-        var count = 0
-        do {
-            count++
-            if (cjStates["bn"]!!.values.any { it } || count % 1000000 == 0) {
-                println("$count: bn.inputs=${cjStates["bn"]}")
-                println(ffStates.values.joinToString("") { if (it) "1" else "0" }+" "+
-                        cjStates.entries.joinToString("|") { "${it.key}:"+it.value.values.joinToString("") { if (it) "1" else "0" } }
-                )
-            }
-        } while (!processPulse())
-        return count
+            //println("$cur : $bits")
+            bits.toString().toLong(2)
+        }.reduce(Long::times)
+        return res
     }
 
     val testInput = readInput("Day20_test")
     check(part1(testInput) == 32000000)
     val testInput2 = readInput("Day20_test2")
     check(part1(testInput2) == 11687500)
-//    check(part2(testInput) == 1)
 //
     val input = readInput("Day20")
-    println( measureTime { part1(input).println() } ) // 0 - 1ms
-    println( measureTime { part2(input).println() } ) // 1 - 50ms
+    println( measureTime { part1(input).println() } ) // 825167435 - 25ms
+    println( measureTime { part2(input).println() } ) // 225514321828633 - 5ms
 }
