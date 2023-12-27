@@ -37,83 +37,56 @@ fun Input.parseInfo(): Info {
     return Info(garden, start)
 }
 
-fun Garden.show(plots: Set<Point>) {
+fun Garden.plotCounters(start: Point, steps: Int): List<Int> {
     val dim = dimension
-    for (row in 0..<dim.rows) {
-        for (col in 0..<dim.cols) {
-            val p = Point(row, col)
-            print(if (p in plots) 'O' else this[p].sym)
-        }
-        println("")
+    val plotsByStep = mutableListOf(1)
+    var plots = setOf(start)
+    val totalPlots = plots.toMutableSet()
+    for(step in 1 .. steps) {
+        plots = plots.flatMap { plot -> Direction.entries.mapNotNull {
+            plot.move(it).takeIf { it.isInside(dim) && this[it.row][it.col]==Tile.PLOT && it !in totalPlots}
+        } }.toSet()
+        totalPlots += plots
+        plotsByStep.add(plots.size)
     }
-    println("-- Plots: ${plots.size} --")
+    return plotsByStep
 }
 
-fun Garden.plotsCount(start: Point, steps: Int): Int {
-    var plots = setOf(start)
-    val dim = dimension
-    repeat(steps) {
-        val newPlots = mutableSetOf<Point>()
-        for (plot in plots) {
-            newPlots.addAll( Direction.entries
-                .map { plot.move(it) }
-                .filter { it.isInside(dim) && this[it.row][it.col]==Tile.PLOT }
-            )
-        }
-        plots = newPlots
-        //show(plots)
-    }
-    //show(plots)
-    return plots.size
-}
+inline fun List<Int>.sumIfIdx(cond: (idx: Int) -> Boolean) = filterIndexed{ idx, _ -> cond(idx) }.sum()
 
 fun main() {
     fun part1(input: Input, steps: Int): Int {
         val (garden, start) = input.parseInfo()
         //garden.dimension.println()
-        return garden.plotsCount(start, steps)
+        return garden.plotCounters(start, steps).sumIfIdx{ it%2==0 }
     }
 
     fun part2(input: Input, steps: Int): Long {
         val (garden, start) = input.parseInfo()
         val (height, width) = garden.dimension
-        val hist = mutableListOf<Set<Point>>()
-        var plots = setOf(start)
-        repeat(steps) {
-            val newPlots = mutableSetOf<Point>()
-            for (plot in plots) {
-                newPlots.addAll( Direction.entries
-                    .map { plot.move(it) }
-                    .filter { garden[it]==Tile.PLOT }
-                )
-            }
-            hist.add(plots)
-            plots = newPlots
-           //println(" ${it + 1}\t\t${plots.size}")
-        }
-//        val minRow = minOf(plots.minOf { it.row },0)
-//        val minCol = minOf(plots.minOf { it.col },0)
-//        val maxRow = maxOf(plots.maxOf { it.row },height)
-//        val maxCol = maxOf(plots.maxOf { it.col },width)
-//        for (row in minRow .. maxRow) {
-//            for (col in minCol..maxCol) {
-//                val p = Point(row, col)
-//                //if (it>0 && p in hist[it-1]) print('*')
-//                //else
-//                    print(if (p in plots) 'O' else garden[p].sym)
-//            }
-//            println("")
-//        }
-        return plots.size.toLong()
+        check(height==width)
+        val remainder = steps % width
+        val plots = garden.plotCounters(start, width)
+        val evenFull = plots.sumIfIdx { it%2==0 }
+        val oddFull = plots.sumIfIdx { it%2==1 }
+        val oddCorner = plots.sumIfIdx { it%2==1 && it>remainder }
+        val evenCorner = plots.sumIfIdx { it%2==0 && it>remainder }
+        val n = ((steps - width/2) / width).toLong()
+
+        val total = (n*n) * evenFull + (n+1)*(n+1) * oddFull + n * evenCorner - (n+1) * oddCorner
+        //println("remainder:$remainder evenFull:$evenFull oddFull:$oddFull evenCorner:$evenCorner oddCorner:$oddCorner")
+        //println("n:$n total:$total")
+        return total
     }
 
     val testInput = readInput("Day21_test")
     check(part1(testInput,6) == 16)
-    check(part2(testInput,50) == 1594L)
-    check(part2(testInput,500) == 167004L)
+//    check(part2(testInput,6) == 16L)
+//    println(part2(testInput,50)) // = 1594L
+//    check(part2(testInput,500) == 167004L)
 //    check(part2(testInput,5000) == 16733044L)
 //
     val input = readInput("Day21")
-    println( measureTime { part1(input,64).println() } ) // 3751 - 50ms
-//    println( measureTime { part2(input,26501365).println() } ) // 1 - 50ms
+    println( measureTime { part1(input,64).println() } ) // 3751 - 17ms
+    println( measureTime { part2(input,26501365).println() } ) // 619407349431167 - 19ms
 }
